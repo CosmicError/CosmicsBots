@@ -6,14 +6,16 @@ from sc2.data import Difficulty, Race
 from sc2.main import run_game
 from sc2.player import Bot, Computer
 from sc2.unit import Unit
-from sc2 import maps
+from sc2 import maps, client
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.upgrade_id import UpgradeId
 
+
 class Nightmare(AI):
     def __init__(self):
         self.raw_affects_selection = True
+        self.debug_showmap = False
     
     async def on_start(self):
         self.client.game_step = 4
@@ -45,7 +47,7 @@ class Nightmare(AI):
             #build turret defenses
             await self.construct_photon_cannon()
             #construct a gate so we can build more stuffs
-            await self.construct_warpgate(max=1)
+            await self.construct_gateway(max=1)
             #make a cybernetics core
             await self.construct_cybernetics_core(max=1)
             #make star gates so we can construct void rays
@@ -99,13 +101,12 @@ class Nightmare(AI):
     #---------------------------------------
     
     def getWorker(self, pos):
-        workers_ = self.workers
         #Get all idle workers (closest worker if no idle) and select the one closest to the target position and return it
-        avalibe = workers_.filter(lambda worker: (worker.is_collecting or worker.is_idle) and worker.tag not in self.unit_tags_received_action)
+        avalibe = self.workers.filter(lambda worker: (worker.is_collecting or worker.is_idle) and worker.tag not in self.unit_tags_received_action)
         if avalibe:
             return avalibe.closest_to(pos)
         else:
-            return workers_.closest_to(pos)
+            return self.workers.closest_to(pos)
         
     async def construct_gas(self):
         if self.can_afford(UnitTypeId.ASSIMILATOR) and self.workers:
@@ -173,7 +174,7 @@ class Nightmare(AI):
             
             await self.build(UnitTypeId.PHOTONCANNON, near = self.townhalls.first, build_worker = self.getWorker(pos=self.townhalls.first))
         
-    async def construct_warpgate(self, max=1):
+    async def construct_gateway(self, max=1):
         if self.can_afford(UnitTypeId.GATEWAY) and (self.already_pending(UnitTypeId.GATEWAY) + self.structures.filter(lambda structure: structure.type_id == UnitTypeId.GATEWAY and structure.is_ready).amount) < max:
             pos = self.structures(UnitTypeId.PYLON).closest_to(self.townhalls.first)
             await self.build(UnitTypeId.GATEWAY, near = pos, build_worker = self.getWorker(pos=pos))
@@ -210,7 +211,12 @@ class Nightmare(AI):
             else:
                 #else just attack their starting location
                 for ray in self.units(UnitTypeId.VOIDRAY).idle:
-                    if ray:
+                    #AI will sometimes get stuck and will forever be unable to find the units unless they are revealed on the map, this is ment to fix that issue
+                    #if not self.debug_showmap and not self.enemy_structures and not self.all_enemy_units:
+                    #    self.debug_showmap = not self.debug_showmap
+                    #    await self.client.debug_show_map()
+                        
+                    if ray:#elif ray:
                         ray.attack(self.enemy_start_locations[0])
     
     #---------------------------------------
@@ -218,27 +224,27 @@ class Nightmare(AI):
     async def research_voidray(self):
         if self.structures(UnitTypeId.CYBERNETICSCORE).ready and self.can_afford(UpgradeId.VOIDRAYSPEEDUPGRADE):
             self.structures(UnitTypeId.CYBERNETICSCORE).first.research(UpgradeId.VOIDRAYSPEEDUPGRADE, True)
-        
+    
     async def research_warpgate(self):
         if self.structures(UnitTypeId.CYBERNETICSCORE).ready and self.can_afford(UpgradeId.WARPGATERESEARCH):
             self.structures(UnitTypeId.CYBERNETICSCORE).first.research(UpgradeId.WARPGATERESEARCH, True)
     
     async def research_air_weapons(self):
         if self.structures(UnitTypeId.CYBERNETICSCORE).ready:
-            if self.already_pending_upgrade(UpgradeId.PROTOSSAIRWEAPONSLEVEL1) == 0:
+            if self.already_pending_upgrade(UpgradeId.PROTOSSAIRWEAPONSLEVEL1) == 0 and self.can_afford(UpgradeId.PROTOSSAIRWEAPONSLEVEL1):
                 self.structures(UnitTypeId.CYBERNETICSCORE).first.research(UpgradeId.PROTOSSAIRWEAPONSLEVEL1, True)
-            elif self.already_pending_upgrade(UpgradeId.PROTOSSAIRWEAPONSLEVEL2) == 0:
+            elif self.already_pending_upgrade(UpgradeId.PROTOSSAIRWEAPONSLEVEL2) == 0 and self.can_afford(UpgradeId.PROTOSSAIRWEAPONSLEVEL2):
                 self.structures(UnitTypeId.CYBERNETICSCORE).first.research(UpgradeId.PROTOSSAIRWEAPONSLEVEL2, True)
-            elif self.already_pending_upgrade(UpgradeId.PROTOSSAIRWEAPONSLEVEL3) == 0:
+            elif self.already_pending_upgrade(UpgradeId.PROTOSSAIRWEAPONSLEVEL3) == 0 and self.can_afford(UpgradeId.PROTOSSAIRWEAPONSLEVEL3):
                 self.structures(UnitTypeId.CYBERNETICSCORE).first.research(UpgradeId.PROTOSSAIRWEAPONSLEVEL3, True)
-                
+    
     async def research_air_defense(self):
         if self.structures(UnitTypeId.CYBERNETICSCORE).ready:
-            if self.already_pending_upgrade(UpgradeId.PROTOSSAIRARMORSLEVEL1) == 0:
+            if self.already_pending_upgrade(UpgradeId.PROTOSSAIRARMORSLEVEL1) == 0 and self.can_afford(UpgradeId.PROTOSSAIRARMORSLEVEL1):
                 self.structures(UnitTypeId.CYBERNETICSCORE).first.research(UpgradeId.PROTOSSAIRARMORSLEVEL1, True)
-            elif self.already_pending_upgrade(UpgradeId.PROTOSSAIRARMORSLEVEL2) == 0:
+            elif self.already_pending_upgrade(UpgradeId.PROTOSSAIRARMORSLEVEL2) == 0 and self.can_afford(UpgradeId.PROTOSSAIRARMORSLEVEL2):
                 self.structures(UnitTypeId.CYBERNETICSCORE).first.research(UpgradeId.PROTOSSAIRARMORSLEVEL2, True)
-            elif self.already_pending_upgrade(UpgradeId.PROTOSSAIRARMORSLEVEL3) == 0:
+            elif self.already_pending_upgrade(UpgradeId.PROTOSSAIRARMORSLEVEL3) == 0 and self.can_afford(UpgradeId.PROTOSSAIRARMORSLEVEL3):
                 self.structures(UnitTypeId.CYBERNETICSCORE).first.research(UpgradeId.PROTOSSAIRARMORSLEVEL3, True)
     
 run_game(
